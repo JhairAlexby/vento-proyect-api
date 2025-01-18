@@ -1,16 +1,13 @@
-import { IsEmail, IsString, MinLength, Matches } from 'class-validator';
+import { IsEmail, IsString } from 'class-validator';
+import { IsStrongPassword } from '../decorators/password.decorator';
 
 export class LoginAuthDto {
-  @IsEmail({}, {
-    message: 'Please provide a valid email address'
-  })
+  @IsEmail()
   email: string;
 
   @IsString()
-  @MinLength(6)
-  @Matches(
-    /(?:(?=.*\d)|(?=.*\W+))(?![.\n])(?=.*[A-Z])(?=.*[a-z]).*$/, {
-    message: 'Password must contain at least one uppercase letter, one lowercase letter, and one number or special character'
+  @IsStrongPassword({
+    message: 'Password must be at least 6 characters long'
   })
   password: string;
 }

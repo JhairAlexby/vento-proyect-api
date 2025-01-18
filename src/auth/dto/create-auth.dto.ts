@@ -1,4 +1,5 @@
 import { IsEmail, IsString, MinLength } from 'class-validator';
+import { IsStrongPassword } from '../decorators/password.decorator';
 
 export class CreateAuthDto {
   @IsString()
@@ -6,7 +7,9 @@ export class CreateAuthDto {
   username: string;
 
   @IsString()
-  @MinLength(6)
+  @IsStrongPassword({
+    message: 'Password must be at least 6 characters long'
+  })
   password: string;
 
   @IsEmail()
