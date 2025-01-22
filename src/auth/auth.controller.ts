@@ -63,8 +63,6 @@ export class AuthController {
     return { message: 'Logout successful' };
   }
 
-  // Nuevos endpoints
-
   // Obtener lista de usuarios (con paginación)
   @Get('users')
   @UseGuards(AuthGuard('jwt'))
@@ -93,11 +91,18 @@ export class AuthController {
     return this.authService.update(id, updateAuthDto, user);
   }
 
-  // Desactivar usuario (soft delete)
-  @Delete('users/:id')
+  // Desactivar cuenta (soft delete)
+  @Delete('users/:id/disable-account')
   @UseGuards(AuthGuard('jwt'))
-  remove(@Param('id') id: string, @GetUser() user: User) {
-    return this.authService.remove(id, user);
+  disableAccount(@Param('id') id: string, @GetUser() user: User) {
+    return this.authService.disableAccount(id, user);
+  }
+
+  // Eliminación permanente de cuenta (hard delete)
+  @Delete('users/:id/delete-account-permanently')
+  @UseGuards(AuthGuard('jwt'))
+  deleteAccountPermanently(@Param('id') id: string, @GetUser() user: User) {
+    return this.authService.deleteAccountPermanently(id, user);
   }
 
   // Cambiar contraseña

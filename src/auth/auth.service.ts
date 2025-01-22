@@ -123,7 +123,7 @@ export class AuthService {
 
   async update(id: string, updateAuthDto: UpdateAuthDto, currentUser: User) {
     try {
-      // Solo el propio usuario o un admin puede actualizar
+      // Solo el propio usuario puede actualizar su perfil
       if (id !== currentUser.id.toString()) {
         throw new ForbiddenException('You can only update your own profile');
       }
@@ -171,22 +171,47 @@ export class AuthService {
     }
   }
 
-  async remove(id: string, currentUser: User) {
+  async disableAccount(id: string, currentUser: User) {
     try {
-      // Solo el propio usuario puede desactivar su cuenta
       if (id !== currentUser.id.toString()) {
-        throw new ForbiddenException('You can only deactivate your own account');
+        throw new ForbiddenException('You can only disable your own account');
       }
 
       const user = await this.userModel.findById(id);
       if (!user || !user.isActive) {
+        throw new NotFoundException(`User with id ${id} not found or already disabled`);
+      }
+
+      await this.userModel.findByIdAndUpdate(id, { isActive: false });
+
+      return { 
+        message: 'Account disabled successfully. You can reactivate it by contacting support.',
+        status: 'disabled'
+      };
+
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  async deleteAccountPermanently(id: string, currentUser: User) {
+    try {
+      if (id !== currentUser.id.toString()) {
+        throw new ForbiddenException('You can only delete your own account');
+      }
+
+      const user = await this.userModel.findById(id);
+      if (!user) {
         throw new NotFoundException(`User with id ${id} not found`);
       }
 
-      // Soft delete
-      await this.userModel.findByIdAndUpdate(id, { isActive: false });
+      await this.userModel.findByIdAndDelete(id);
 
-      return { message: 'User deactivated successfully' };
+      return { 
+        message: 'Account deleted permanently. This action cannot be undone.',
+        warning: 'All your data has been permanently removed from our system.',
+        status: 'deleted'
+      };
 
     } catch (error) {
       this.handleDBErrors(error);
