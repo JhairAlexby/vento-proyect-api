@@ -3,7 +3,9 @@ import {
   UnauthorizedException, 
   BadRequestException,
   InternalServerErrorException,
-  Logger
+  Logger,
+  NotFoundException,
+  ForbiddenException,
 } from '@nestjs/common';
 import { JwtService } from '@nestjs/jwt';
 import { InjectModel } from '@nestjs/mongoose';
@@ -13,6 +15,7 @@ import * as bcrypt from 'bcrypt';
 import { User } from './entities/user.entity';
 import { CreateAuthDto } from './dto/create-auth.dto';
 import { LoginAuthDto } from './dto/login-auth.dto';
+import { UpdateAuthDto } from './dto/update-auth.dto';
 import { JwtPayload, LoginResponse } from './interfaces';
 
 @Injectable()
@@ -84,12 +87,156 @@ export class AuthService {
     };
   }
 
-  private getJwtToken(payload: JwtPayload): string {
+  async findAll(limit: number = 10, offset: number = 0) {
     try {
-      return this.jwtService.sign(payload);
+      const [total, users] = await Promise.all([
+        this.userModel.countDocuments({ isActive: true }),
+        this.userModel.find({ isActive: true })
+          .select('-password')
+          .skip(offset)
+          .limit(limit)
+          .sort({ createdAt: -1 })
+      ]);
+
+      return {
+        total,
+        users,
+        offset,
+        limit,
+      };
     } catch (error) {
-      this.logger.error('Error generating JWT token', error);
-      throw new InternalServerErrorException('Error during login process');
+      this.handleDBErrors(error);
+    }
+  }
+
+  async findOne(id: string) {
+    try {
+      const user = await this.userModel.findById(id).select('-password');
+      if (!user || !user.isActive) {
+        throw new NotFoundException(`User with id ${id} not found`);
+      }
+      return user;
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  async update(id: string, updateAuthDto: UpdateAuthDto, currentUser: User) {
+    try {
+      // Solo el propio usuario puede actualizar su perfil
+      if (id !== currentUser.id.toString()) {
+        throw new ForbiddenException('You can only update your own profile');
+      }
+
+      const user = await this.userModel.findById(id);
+      if (!user || !user.isActive) {
+        throw new NotFoundException(`User with id ${id} not found`);
+      }
+
+      if (updateAuthDto.email && updateAuthDto.email !== user.email) {
+        // Verificar si el nuevo email ya existe
+        const emailExists = await this.userModel.findOne({ 
+          email: updateAuthDto.email,
+          _id: { $ne: id }
+        });
+        if (emailExists) {
+          throw new BadRequestException('Email already exists');
+        }
+      }
+
+      if (updateAuthDto.username && updateAuthDto.username !== user.username) {
+        // Verificar si el nuevo username ya existe
+        const usernameExists = await this.userModel.findOne({
+          username: updateAuthDto.username,
+          _id: { $ne: id }
+        });
+        if (usernameExists) {
+          throw new BadRequestException('Username already exists');
+        }
+      }
+
+      // No permitir actualización de password por este método
+      const { password, ...updateData } = updateAuthDto;
+
+      const updatedUser = await this.userModel.findByIdAndUpdate(
+        id,
+        { $set: updateData },
+        { new: true }
+      ).select('-password');
+
+      return updatedUser;
+
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  async disableAccount(id: string, currentUser: User) {
+    try {
+      if (id !== currentUser.id.toString()) {
+        throw new ForbiddenException('You can only disable your own account');
+      }
+
+      const user = await this.userModel.findById(id);
+      if (!user || !user.isActive) {
+        throw new NotFoundException(`User with id ${id} not found or already disabled`);
+      }
+
+      await this.userModel.findByIdAndUpdate(id, { isActive: false });
+
+      return { 
+        message: 'Account disabled successfully. You can reactivate it by contacting support.',
+        status: 'disabled'
+      };
+
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  async deleteAccountPermanently(id: string, currentUser: User) {
+    try {
+      if (id !== currentUser.id.toString()) {
+        throw new ForbiddenException('You can only delete your own account');
+      }
+
+      const user = await this.userModel.findById(id);
+      if (!user) {
+        throw new NotFoundException(`User with id ${id} not found`);
+      }
+
+      await this.userModel.findByIdAndDelete(id);
+
+      return { 
+        message: 'Account deleted permanently. This action cannot be undone.',
+        warning: 'All your data has been permanently removed from our system.',
+        status: 'deleted'
+      };
+
+    } catch (error) {
+      this.handleDBErrors(error);
+    }
+  }
+
+  async changePassword(changePasswordDto: { oldPassword: string; newPassword: string }, user: User) {
+    try {
+      const currentUser = await this.userModel.findById(user.id).select('+password');
+      
+      // Verificar contraseña actual
+      if (!bcrypt.compareSync(changePasswordDto.oldPassword, currentUser.password)) {
+        throw new BadRequestException('Current password is incorrect');
+      }
+
+      // Actualizar contraseña
+      const hashedPassword = bcrypt.hashSync(changePasswordDto.newPassword, 10);
+      await this.userModel.findByIdAndUpdate(user.id, {
+        password: hashedPassword
+      });
+
+      return { message: 'Password updated successfully' };
+
+    } catch (error) {
+      this.handleDBErrors(error);
     }
   }
 
@@ -103,6 +250,15 @@ export class AuthService {
     } catch (error) {
       this.logger.error('Error validating user', error);
       throw new UnauthorizedException();
+    }
+  }
+
+  private getJwtToken(payload: JwtPayload): string {
+    try {
+      return this.jwtService.sign(payload);
+    } catch (error) {
+      this.logger.error('Error generating JWT token', error);
+      throw new InternalServerErrorException('Error during login process');
     }
   }
 
