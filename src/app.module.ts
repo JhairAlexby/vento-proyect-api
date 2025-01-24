@@ -4,6 +4,7 @@ import { ConfigModule } from '@nestjs/config';
 import { EnvConfigurations } from './config/app.config';
 import { joiValidationSchema } from './config/joi.validation';
 import { AuthModule } from './auth/auth.module';
+import { ProductsModule } from './products/products.module';
 
 
 @Module({
@@ -17,6 +18,8 @@ import { AuthModule } from './auth/auth.module';
     MongooseModule.forRoot(process.env.MONGODB),
 
     AuthModule,
+
+    ProductsModule,
 
 
 
