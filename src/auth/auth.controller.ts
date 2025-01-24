@@ -63,7 +63,6 @@ export class AuthController {
     return { message: 'Logout successful' };
   }
 
-  // Obtener lista de usuarios (con paginación)
   @Get('users')
   @UseGuards(AuthGuard('jwt'))
   findAll(
@@ -73,14 +72,12 @@ export class AuthController {
     return this.authService.findAll(limit, offset);
   }
 
-  // Obtener un usuario por ID
   @Get('users/:id')
   @UseGuards(AuthGuard('jwt'))
   findOne(@Param('id') id: string) {
     return this.authService.findOne(id);
   }
 
-  // Actualizar usuario
   @Patch('users/:id')
   @UseGuards(AuthGuard('jwt'))
   update(
@@ -91,21 +88,18 @@ export class AuthController {
     return this.authService.update(id, updateAuthDto, user);
   }
 
-  // Desactivar cuenta (soft delete)
   @Delete('users/:id/disable-account')
   @UseGuards(AuthGuard('jwt'))
   disableAccount(@Param('id') id: string, @GetUser() user: User) {
     return this.authService.disableAccount(id, user);
   }
 
-  // Eliminación permanente de cuenta (hard delete)
   @Delete('users/:id/delete-account-permanently')
   @UseGuards(AuthGuard('jwt'))
   deleteAccountPermanently(@Param('id') id: string, @GetUser() user: User) {
     return this.authService.deleteAccountPermanently(id, user);
   }
 
-  // Cambiar contraseña
   @Patch('change-password')
   @UseGuards(AuthGuard('jwt'))
   changePassword(
