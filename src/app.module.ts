@@ -6,6 +6,7 @@ import { joiValidationSchema } from './config/joi.validation';
 import { AuthModule } from './auth/auth.module';
 import { ProductsModule } from './products/products.module';
 import { OrdersModule } from './orders/orders.module';
+import { SalesModule } from './sales/sales.module';
 
 
 @Module({
@@ -23,6 +24,8 @@ import { OrdersModule } from './orders/orders.module';
     ProductsModule,
 
     OrdersModule,
+
+    SalesModule,
 
 
 
